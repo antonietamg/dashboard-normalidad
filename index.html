@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Evaluación de normalidad</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f7f5fb;color:#111}
+.dashboard{max-width:1180px;margin:0 auto;padding:28px}
+h1{margin:0 0 18px 0;font-size:34px;line-height:1.1;font-weight:800;color:#111;border-bottom:3px solid #6c2cff;padding-bottom:12px}
+.grid{display:grid;grid-template-columns:1fr 1.35fr;gap:20px}
+.card{background:#fff;border:1px solid #ddd;border-radius:16px;padding:20px;box-shadow:0 4px 14px rgba(0,0,0,.06)}
+.card h2{margin:0 0 14px 0;color:#6c2cff;font-size:24px;font-weight:700;border-left:4px solid #6c2cff;padding-left:12px}
+label{display:block;font-weight:700;margin-bottom:10px;font-size:16px}
+textarea{width:100%;min-height:140px;resize:vertical;padding:14px;border-radius:10px;border:1px solid #ccc;font-size:15px;line-height:1.5}
+.buttons{display:flex;gap:12px;margin-top:14px;flex-wrap:wrap}
+button{border:none;border-radius:12px;padding:13px 24px;font-size:15px;font-weight:700;cursor:pointer}
+.primary{background:#6c2cff;color:#fff}
+.secondary{background:#e8e8ec;color:#333}
+.full{grid-column:1/-1}
+.results-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+table{width:100%;border-collapse:collapse;font-size:15px}
+td{padding:9px 4px;border-bottom:1px solid #eee;vertical-align:top}
+td:nth-child(2){text-align:right;font-weight:700}
+.decision{margin-top:16px;padding:16px;border-radius:12px;line-height:1.45}
+.decision.reject{background:#fff4eb;border-left:5px solid #ff7a1a}
+.decision.accept{background:#ecfff6;border-left:5px solid #00b978}
+.decision.error{background:#fff0f0;border-left:5px solid #d93025}
+.alert-box{padding:12px 14px;border-left:5px solid #ff7a1a;background:#fff7f0;border-radius:10px;margin-bottom:10px;line-height:1.45}
+.info-box{padding:12px 14px;border-left:5px solid #6c2cff;background:#f4efff;border-radius:10px;margin-bottom:10px;line-height:1.45}
+.error-message{color:#b00020;font-weight:700;margin-top:12px}
+.muted{color:#555;font-size:14px;line-height:1.45}
+@media(max-width:900px){.grid,.results-grid{grid-template-columns:1fr}h1{font-size:28px}}
+</style>
+</head>
+<body>
+<div class="dashboard">
+<h1>Tablero de evaluación de normalidad</h1>
+<div class="grid">
+<div class="card">
+<label for="dataInput">Introduce tus datos separados por comas. Ejemplo: 7.2, 8.1, 6.9, 7.8, 8.4</label>
+<textarea id="dataInput">68, 76, 44, 47, 11, 60, 51, 54, 64, 65, 38, 72, 45, 74, 40, 46, 62, 78, 5, 2, 56, 55, 59, 53, 52, 57, 48, 8, 50, 49, 58, 43, 70, 63, 42, 61, 66, 14</textarea>
+<div class="buttons">
+<button class="primary" onclick="analyzeData()">Evaluar normalidad</button>
+<button class="secondary" onclick="clearDashboard()">Limpiar</button>
+</div>
+<div id="inputError" class="error-message"></div>
+</div>
+<div class="card">
+<h2>Nota didáctica</h2>
+<p class="muted">Una prueba de normalidad evalúa si los datos muestran evidencia estadística de desviarse de una distribución normal. Un valor p menor que 0.05 indica que se rechaza la hipótesis de normalidad. Un valor p mayor o igual que 0.05 no demuestra que los datos sean normales; sólo indica que no hay evidencia suficiente para rechazar la normalidad con esta prueba.</p>
+</div>
+<div class="full results-grid">
+<div class="card">
+<h2>Resultado de la prueba de normalidad</h2>
+<div id="normalityResult"><p class="muted">Ingresa tus datos y presiona “Evaluar normalidad”.</p></div>
+</div>
+<div class="card">
+<h2>Estadísticos descriptivos</h2>
+<div id="descriptiveStats"><p class="muted">Los resultados aparecerán aquí.</p></div>
+</div>
+</div>
+<div class="full results-grid">
+<div class="card">
+<h2>Alertas descriptivas</h2>
+<div id="alerts"><p class="muted">Las alertas aparecerán aquí.</p></div>
+</div>
+<div class="card">
+<h2>Recomendación</h2>
+<div id="recommendation"><p class="muted">La recomendación aparecerá aquí.</p></div>
+</div>
+</div>
+</div>
+</div>
+<script>
+function sum(arr){return arr.reduce((a,b)=>a+b,0)}
+function mean(arr){return sum(arr)/arr.length}
+function sampleVariance(arr){const m=mean(arr);return arr.reduce((acc,x)=>acc+Math.pow(x-m,2),0)/(arr.length-1)}
+function sampleSD(arr){return Math.sqrt(sampleVariance(arr))}
+function median(sorted){const n=sorted.length;return n%2===1?sorted[(n-1)/2]:(sorted[n/2-1]+sorted[n/2])/2}
+function quantileLinear(sorted,p){const n=sorted.length;const pos=1+(n-1)*p;const k=Math.floor(pos);const d=pos-k;if(k<=0)return sorted[0];if(k>=n)return sorted[n-1];return sorted[k-1]+d*(sorted[k]-sorted[k-1])}
+function sampleSkewness(arr){const n=arr.length;const m=mean(arr);const s=sampleSD(arr);if(s===0||n<3)return NaN;const total=arr.reduce((acc,x)=>acc+Math.pow((x-m)/s,3),0);return(n/((n-1)*(n-2)))*total}
+function sampleExcessKurtosis(arr){const n=arr.length;const m=mean(arr);const s=sampleSD(arr);if(s===0||n<4)return NaN;const total=arr.reduce((acc,x)=>acc+Math.pow((x-m)/s,4),0);const term1=(n*(n+1))/((n-1)*(n-2)*(n-3));const term2=(3*Math.pow(n-1,2))/((n-2)*(n-3));return term1*total-term2}
+function erf(x){const sign=x>=0?1:-1;x=Math.abs(x);const a1=.254829592,a2=-.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=.3275911;const t=1/(1+p*x);const y=1-(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-x*x);return sign*y}
+function normalCDF(x){return .5*(1+erf(x/Math.sqrt(2)))}
+function normalInv(p){if(p<=0||p>=1)throw new Error("normalInv requiere 0 < p < 1");const a=[-39.69683028665376,220.9460984245205,-275.9285104469687,138.357751867269,-30.66479806614716,2.506628277459239];const b=[-54.47609879822406,161.5858368580409,-155.6989798598866,66.80131188771972,-13.28068155588572];const c=[-.007784894002430293,-.3223964580411365,-2.400758277161838,-2.549732539343734,4.374664141464968,2.938163982698783];const d=[.007784695709041462,.3224671290700398,2.445134137142996,3.754408661907416];const plow=.02425,phigh=1-plow;let q,r;if(p<plow){q=Math.sqrt(-2*Math.log(p));return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1)}if(phigh<p){q=Math.sqrt(-2*Math.log(1-p));return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1)}q=p-.5;r=q*q;return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q/(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1)}
+function poly(coeffs,x){let result=coeffs[coeffs.length-1];for(let i=coeffs.length-2;i>=0;i--)result=result*x+coeffs[i];return result}
+function shapiroWilk(data){const x=[...data].sort((a,b)=>a-b);const n=x.length;if(n<3)throw new Error("Se requieren al menos 3 datos.");if(n>5000)throw new Error("Shapiro-Wilk sólo se aplica aquí hasta n = 5000.");const range=x[n-1]-x[0];if(range===0)throw new Error("Todos los valores son iguales.");const nn2=Math.floor(n/2);const a=new Array(nn2);const c1=[0,.221157,-.147981,-2.07119,4.434685,-2.706056];const c2=[0,.042981,-.293762,-1.752461,5.682633,-3.582633];const c3=[.544,-.39978,.025054,-.0006714];const c4=[1.3822,-.77857,.062767,-.0020322];const c5=[-1.5861,-.31082,-.083751,.0038915];const c6=[-.4803,-.082676,.0030302];const g=[-2.273,.459];for(let i=0;i<nn2;i++)a[i]=normalInv((i+1-.375)/(n+.25));let summ2=0;for(let i=0;i<nn2;i++)summ2+=a[i]*a[i];summ2*=2;const ssumm2=Math.sqrt(summ2);const rsn=1/Math.sqrt(n);const a1=poly(c1,rsn)-a[0]/ssumm2;let start;if(n>5){const a2=poly(c2,rsn)-a[1]/ssumm2;const fac=Math.sqrt((summ2-2*a[0]*a[0]-2*a[1]*a[1])/(1-2*a1*a1-2*a2*a2));a[0]=a1;a[1]=a2;start=2;for(let i=start;i<nn2;i++)a[i]=-a[i]/fac}else{const fac=Math.sqrt((summ2-2*a[0]*a[0])/(1-2*a1*a1));a[0]=a1;start=1;for(let i=start;i<nn2;i++)a[i]=-a[i]/fac}let sx=0,ssx=0;for(let i=0;i<n;i++){const xi=x[i]/range;sx+=xi;ssx+=xi*xi}ssx-=(sx*sx)/n;let sax=0;for(let i=0;i<nn2;i++)sax+=a[i]*(x[n-1-i]/range-x[i]/range);const W=(sax*sax)/ssx;if(n===3){const pi6=1.909859317102744,stqr=1.047197551196598;let pValue=pi6*(Math.asin(Math.sqrt(W))-stqr);pValue=Math.max(0,Math.min(1,pValue));return{statistic:W,pValue:pValue}}const w1=1-W;if(w1<=0)return{statistic:W,pValue:1};let y=Math.log(w1),m,s;if(n<=11){const gamma=poly(g,n);if(y>=gamma)return{statistic:W,pValue:0};y=-Math.log(gamma-y);m=poly(c3,n);s=Math.exp(poly(c4,n))}else{const xx=Math.log(n);m=poly(c5,xx);s=Math.exp(poly(c6,xx))}const z=(y-m)/s;let pValue=1-normalCDF(z);pValue=Math.max(0,Math.min(1,pValue));return{statistic:W,pValue:pValue}}
+function lillieforsTest(data){const n=data.length;const m=mean(data);const s=sampleSD(data);if(s===0)throw new Error("La desviación estándar es cero.");const z=data.map(x=>(x-m)/s).sort((a,b)=>a-b);let dPlus=0,dMinus=0;for(let i=0;i<n;i++){const F=normalCDF(z[i]);const empiricalUpper=(i+1)/n;const empiricalLower=i/n;dPlus=Math.max(dPlus,empiricalUpper-F);dMinus=Math.max(dMinus,F-empiricalLower)}const D=Math.max(dPlus,dMinus);const scaledD=D*Math.sqrt(n);const critical05=.886/Math.sqrt(n);let pLabel,pApprox;if(scaledD<.736){pLabel="p > 0.20";pApprox=.20}else if(scaledD>=1.031){pLabel="p < 0.01";pApprox=.009}else{const xs=[.736,.768,.805,.886,1.031];const ps=[.20,.15,.10,.05,.01];for(let i=0;i<xs.length-1;i++){if(scaledD>=xs[i]&&scaledD<=xs[i+1]){const t=(scaledD-xs[i])/(xs[i+1]-xs[i]);const logp=Math.log(ps[i])+t*(Math.log(ps[i+1])-Math.log(ps[i]));pApprox=Math.exp(logp);pLabel="≈ "+formatNumber(pApprox,4);break}}}return{statistic:D,pValue:pApprox,pLabel:pLabel,critical05:critical05}}
+function formatNumber(x,digits=3){if(x===null||x===undefined||Number.isNaN(x))return"No calculable";return Number(x).toFixed(digits)}
+function formatP(p){if(p===null||p===undefined||Number.isNaN(p))return"No calculable";if(p<.001)return"p < 0.001";return formatNumber(p,5)}
+function parseData(){const raw=document.getElementById("dataInput").value.trim();if(!raw)throw new Error("Introduce tus datos separados por comas.");const parts=raw.split(",");const values=parts.map(item=>{const cleaned=item.trim();if(cleaned==="")throw new Error("No dejes valores vacíos entre comas.");const value=Number(cleaned);if(!Number.isFinite(value))throw new Error("Revisa tus datos: todos deben ser números separados por comas.");return value});if(values.length<3)throw new Error("Se necesitan al menos 3 datos para evaluar normalidad.");if(values.length>10000)throw new Error("El máximo permitido es de 10000 datos.");return values}
+function analyzeData(){const errorDiv=document.getElementById("inputError");errorDiv.textContent="";let data;try{data=parseData()}catch(err){errorDiv.textContent=err.message;return}const n=data.length;const sorted=[...data].sort((a,b)=>a-b);const m=mean(data),med=median(sorted),sd=sampleSD(data),min=sorted[0],max=sorted[n-1];if(sd===0){showErrorAllEqual(n,m,med,min,max);return}const q1=quantileLinear(sorted,.25),q3=quantileLinear(sorted,.75),iqr=q3-q1;const lowerLimit=q1-1.5*iqr,upperLimit=q3+1.5*iqr;const outliers=data.filter(x=>x<lowerLimit||x>upperLimit);const skew=sampleSkewness(data),kurt=sampleExcessKurtosis(data);let testName,statisticLabel,statistic,pValue,pDisplay,decisionReject=false,testError=null;try{if(n<=5000){const sw=shapiroWilk(data);testName="Shapiro-Wilk";statisticLabel="Estadístico W";statistic=sw.statistic;pValue=sw.pValue;pDisplay=formatP(pValue);decisionReject=pValue<.05}else{const lf=lillieforsTest(data);testName="Lilliefors";statisticLabel="Estadístico D";statistic=lf.statistic;pValue=lf.pValue;pDisplay=lf.pLabel+" (aprox.)";decisionReject=lf.statistic>lf.critical05}}catch(err){testError=err.message}renderNormalityResult({n,testName,statisticLabel,statistic,pDisplay,decisionReject,testError});renderDescriptiveStats({n,m,med,sd,min,q1,q3,iqr,max,skew,kurt,outliers});renderAlerts({outliers,skew,kurt});renderRecommendation({decisionReject,outliers,skew,kurt,testError})}
+function renderNormalityResult(obj){const div=document.getElementById("normalityResult");if(obj.testError){div.innerHTML=`<div class="decision error"><strong>No fue posible calcular correctamente la prueba de normalidad.</strong><br>Revisa los datos o utiliza un software estadístico especializado.<br>Detalle: ${obj.testError}</div>`;return}const decisionText=obj.decisionReject?"Se rechaza la hipótesis de normalidad.":"No se rechaza la hipótesis de normalidad.";const interpretation=obj.decisionReject?"Los datos muestran evidencia estadística de desviación respecto a una distribución normal.":"Con esta prueba, no hay evidencia estadística suficiente para afirmar que los datos se alejan de una distribución normal.";const className=obj.decisionReject?"reject":"accept";div.innerHTML=`<table><tr><td>Tamaño de muestra (n)</td><td>${obj.n}</td></tr><tr><td>Prueba utilizada</td><td>${obj.testName}</td></tr><tr><td>${obj.statisticLabel}</td><td>${formatNumber(obj.statistic,4)}</td></tr><tr><td>Valor p</td><td>${obj.pDisplay}</td></tr><tr><td>Nivel de significancia α</td><td>0.05</td></tr></table><div class="decision ${className}"><strong>${decisionText}</strong><br>${interpretation}</div>`}
+function renderDescriptiveStats(obj){document.getElementById("descriptiveStats").innerHTML=`<table><tr><td>n</td><td>${obj.n}</td></tr><tr><td>Media</td><td>${formatNumber(obj.m,3)}</td></tr><tr><td>Mediana</td><td>${formatNumber(obj.med,3)}</td></tr><tr><td>Desviación estándar muestral</td><td>${formatNumber(obj.sd,3)}</td></tr><tr><td>Mínimo</td><td>${formatNumber(obj.min,3)}</td></tr><tr><td>Q1</td><td>${formatNumber(obj.q1,3)}</td></tr><tr><td>Q3</td><td>${formatNumber(obj.q3,3)}</td></tr><tr><td>IQR</td><td>${formatNumber(obj.iqr,3)}</td></tr><tr><td>Máximo</td><td>${formatNumber(obj.max,3)}</td></tr><tr><td>Sesgo</td><td>${formatNumber(obj.skew,3)}</td></tr><tr><td>Curtosis excedente</td><td>${formatNumber(obj.kurt,3)}</td></tr><tr><td>Número de valores atípicos</td><td>${obj.outliers.length}</td></tr></table>`}
+function renderAlerts(obj){const div=document.getElementById("alerts");let html="";if(obj.outliers.length>0){html+=`<div class="alert-box"><strong>Valores atípicos:</strong> Se detectaron posibles valores atípicos mediante la regla 1.5 × IQR: ${obj.outliers.join(", ")}.</div>`}else{html+=`<div class="info-box">No se detectaron valores atípicos con la regla 1.5 × IQR.</div>`}const absSkew=Math.abs(obj.skew);if(absSkew>=1){html+=`<div class="alert-box"><strong>Sesgo:</strong> El sesgo es alto y sugiere asimetría marcada. La asimetría es hacia la ${obj.skew<0?"izquierda":"derecha"}.</div>`}else if(absSkew>=.5){html+=`<div class="info-box"><strong>Sesgo:</strong> El sesgo es moderado. La asimetría es hacia la ${obj.skew<0?"izquierda":"derecha"}.</div>`}else{html+=`<div class="info-box"><strong>Sesgo:</strong> El sesgo es bajo.</div>`}const absKurt=Math.abs(obj.kurt);if(absKurt>=1){html+=`<div class="alert-box"><strong>Curtosis:</strong> La curtosis sugiere una forma alejada de la normal.</div>`}else{html+=`<div class="info-box"><strong>Curtosis:</strong> La curtosis no parece muy alejada de la normal.</div>`}div.innerHTML=html}
+function renderRecommendation(obj){const div=document.getElementById("recommendation");if(obj.testError){div.innerHTML=`<div class="decision error">No se generó recomendación porque la prueba de normalidad no pudo calcularse correctamente.</div>`;return}if(obj.decisionReject){let extra="";if(obj.outliers.length>0||Math.abs(obj.skew)>=1||Math.abs(obj.kurt)>=1){extra=`<p>La decisión también debe considerar que el conjunto de datos presenta características descriptivas que pueden alejarlo de la normalidad, como valores atípicos, asimetría marcada o curtosis elevada.</p>`}div.innerHTML=`<div class="decision reject"><strong>Recomendación:</strong><br>Como la prueba sugiere desviación respecto a la normalidad, se recomienda considerar pruebas no paramétricas o métodos robustos, según el objetivo del análisis. También es recomendable reportar y graficar la mediana, los cuartiles y el IQR. En distribuciones claramente no normales, las medidas y pruebas que dependen fuertemente de la media pueden producir interpretaciones imprecisas. ${extra}</div>`}else{div.innerHTML=`<div class="decision accept"><strong>Recomendación:</strong><br>Con esta prueba no hay evidencia estadística suficiente para rechazar la normalidad. Aun así, conviene revisar los estadísticos descriptivos, el sesgo, la curtosis y la presencia de valores atípicos antes de decidir qué prueba estadística utilizar.</div>`}}
+function showErrorAllEqual(n,m,med,min,max){document.getElementById("normalityResult").innerHTML=`<div class="decision error"><strong>No se puede aplicar la prueba de normalidad porque todos los valores son iguales.</strong><br>La desviación estándar es cero.</div>`;document.getElementById("descriptiveStats").innerHTML=`<table><tr><td>n</td><td>${n}</td></tr><tr><td>Media</td><td>${formatNumber(m,3)}</td></tr><tr><td>Mediana</td><td>${formatNumber(med,3)}</td></tr><tr><td>Desviación estándar muestral</td><td>0.000</td></tr><tr><td>Mínimo</td><td>${formatNumber(min,3)}</td></tr><tr><td>Máximo</td><td>${formatNumber(max,3)}</td></tr></table>`;document.getElementById("alerts").innerHTML=`<div class="alert-box">Todos los valores son iguales. No hay variabilidad en los datos.</div>`;document.getElementById("recommendation").innerHTML=`<div class="decision error">No es adecuado aplicar una prueba de normalidad cuando todos los valores son iguales.</div>`}
+function clearDashboard(){document.getElementById("dataInput").value="";document.getElementById("inputError").textContent="";document.getElementById("normalityResult").innerHTML='<p class="muted">Ingresa tus datos y presiona “Evaluar normalidad”.</p>';document.getElementById("descriptiveStats").innerHTML='<p class="muted">Los resultados aparecerán aquí.</p>';document.getElementById("alerts").innerHTML='<p class="muted">Las alertas aparecerán aquí.</p>';document.getElementById("recommendation").innerHTML='<p class="muted">La recomendación aparecerá aquí.</p>'}
+analyzeData();
+</script>
+</body>
+</html>
